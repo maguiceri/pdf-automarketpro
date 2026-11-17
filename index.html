@@ -325,7 +325,7 @@ document.getElementById("descargar").onclick = async () => {
       margin: [8, 8, 8, 8],
       filename: `informe-${data.vehiculo.patente || "vehiculo"}.pdf`,
       image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc", windowWidth: 1200 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc" },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"], avoid: [".row", ".card", ".gen", ".facts", ".sec"] }
     }).from(document.getElementById("sheet")).save();
