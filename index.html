@@ -57,7 +57,7 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;b
 .card h4{margin:0;background:var(--navy);color:#fff;padding:10px;font-size:13px}
 .card .c{padding:12px}
 .card p{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.35}
-@media (max-width:900px){.wrap{grid-template-columns:1fr}.editor{position:static;max-height:none}.row{grid-template-columns:1fr 1fr}.row .name{grid-column:1/-1}.grid4{grid-template-columns:1fr 1fr}.facts{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}.editor{position:static;max-height:none}body:not(.pdf-mode) .row{grid-template-columns:1fr 1fr}body:not(.pdf-mode) .row .name{grid-column:1/-1}body:not(.pdf-mode) .grid4{grid-template-columns:1fr 1fr}body:not(.pdf-mode) .facts{grid-template-columns:1fr 1fr}}
 @media print{
   .editor,.btns{display:none!important}
   .wrap{display:block}
@@ -319,18 +319,20 @@ function render() {
 document.getElementById("descargar").onclick = async () => {
   const boton = document.getElementById("descargar");
   boton.disabled = true; boton.textContent = "Generando...";
+  document.body.classList.add("pdf-mode");
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename: `informe-${data.vehiculo.patente || "vehiculo"}.pdf`,
       image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc" },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc", windowWidth: 1200 },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"], avoid: [".row", ".card", ".gen", ".facts", ".sec"] }
     }).from(document.getElementById("sheet")).save();
   } catch (err) {
     alert("No se pudo generar el PDF: " + (err && err.message ? err.message : err));
   } finally {
+    document.body.classList.remove("pdf-mode");
     boton.disabled = false; boton.textContent = "Descargar PDF";
   }
 };
