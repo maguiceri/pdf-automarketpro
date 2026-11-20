@@ -82,7 +82,7 @@ body{background:#f5f8fc}
 .gen p{background:#fff;border-radius:0 0 10px 10px;border:1px solid var(--line);border-top:0;grid-column:1/-1}
 .sec{background:linear-gradient(90deg,#d6e6f8,#eef4fb);border-left:0;padding:10px 16px 10px 34px;border-radius:6px;position:relative;margin-top:28px;font-size:20px;color:var(--navy)}
 .sec::before{content:"";position:absolute;left:12px;top:50%;width:12px;height:22px;background:#2f7fd8;transform:translateY(-50%) skewX(-18deg);border-radius:2px}
-.row{grid-template-columns:130px 1fr 1fr 1.25fr;padding:12px;border-radius:12px;box-shadow:0 2px 8px rgba(15,29,61,.05);border-color:#e6edf7}
+.row{grid-template-columns:130px 1fr 1.25fr;padding:12px;border-radius:12px;box-shadow:0 2px 8px rgba(15,29,61,.05);border-color:#e6edf7}
 .row .name{font-size:17px;border-right:2px solid #cfe0f5;padding-right:8px}
 .ph{border-radius:10px}
 .b-regular{background:#ffd23f;color:#3a2e00}
@@ -165,35 +165,40 @@ body{background:#f5f8fc}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-const ESTADOS = [["bien","Bien"],["regular","Regular"],["malo","Malo"]];
+const ESTADOS = [["bien","Bueno"],["regular","Regular"],["malo","Malo"]];
+const TIENE = [["tiene","Tiene"],["no","No tiene"],["desconoce","Desconoce"]];
+const ESTADOS_ESCANEO = [["bien","Bien"],["regular","Regular"],["malo","Mal"]];
+const DEUDA = [["posee","Posee deuda"],["no","No posee deuda"]];
 
 const DEFAULT = {
   vehiculo: { modelo: "Peugeot 208", fecha: "2026-06-16", patente: "AB123CD", anio: "2022", km: "44.827" },
   general: { estado: "bueno", resumen: "Vehículo en buen estado general, con detalles menores a considerar." },
   componentes: [
     { nombre: "Carrocería", estado: "regular", texto: "Se detecta masilla en el pasarrueda delantero y en ambas puertas del lado conductor. Capó repintado, con reparaciones previas." },
-    { nombre: "Neumáticos", estado: "bien", texto: "Cuatro cubiertas año 2022, con buen dibujo. Se observa mayor desgaste en el eje delantero." },
-    { nombre: "Luces", estado: "regular", texto: "La luz alta derecha se encuentra quemada. El resto del sistema de iluminación funciona correctamente." },
-    { nombre: "Batería", estado: "regular", texto: "Batería en estado regular, con carga de 12,3 V. Se recomienda su control y eventual reemplazo." },
-    { nombre: "Distribución", estado: "bien", texto: "Sistema de distribución en correcto estado, sin ruidos ni pérdidas." },
-    { nombre: "Climatizador A/C", estado: "bien", texto: "El sistema de climatización funciona correctamente, con adecuada refrigeración y ventilación." },
     { nombre: "Interior", estado: "bien", texto: "Interior en buen estado general, con tapizados y terminaciones sin daños relevantes." },
+    { nombre: "Neumáticos", estado: "bien", texto: "Cuatro cubiertas año 2022, con buen dibujo. Se observa mayor desgaste en el eje delantero." },
     { nombre: "Frenos", estado: "regular", texto: "Pastillas de freno delanteras con aprox. 30% de vida útil. Discos en buen estado. Se recomienda su reemplazo próximamente." },
+    { nombre: "Luces", estado: "regular", texto: "La luz alta derecha se encuentra quemada. El resto del sistema de iluminación funciona correctamente." },
     { nombre: "Motor", estado: "bien", texto: "Motor en buen estado general, sin pérdidas de fluidos ni anomalías visibles. Funcionamiento dentro de los parámetros normales." },
+    { nombre: "Transmisión", estado: "bien", texto: "Transmisión en buen estado, con cambios precisos y sin anomalías durante la prueba." },
+    { nombre: "Batería", estado: "regular", texto: "Batería en estado regular, con carga de 12,3 V. Se recomienda su control y eventual reemplazo." },
     { nombre: "Tren Delantero", estado: "bien", texto: "Sin juegos ni ruidos anormales. Bujes y componentes en buen estado." },
-    { nombre: "Transmisión", estado: "bien", texto: "Transmisión en buen estado, con cambios precisos y sin anomalías durante la prueba." }
+    { nombre: "Distribución", estado: "bien", texto: "Sistema de distribución en correcto estado, sin ruidos ni pérdidas." }
   ],
   complementaria: {
-    llaves: { estado: "bien", texto: "Se entregan 2 llaves originales en buen estado." },
-    manuales: { estado: "bien", texto: "Se entrega manual del vehículo." },
-    policial: { estado: "bien", texto: "Sin impedimentos para la circulación ni para la transferencia." },
-    vtv: { estado: "vigente", hasta: "Junio 2027" }
+    llaves: { cantidad: "2" },
+    manuales: { estado: "tiene" },
+    policial: { estado: "tiene" },
+    vtv: { estado: "tiene" },
+    escaneo: { estado: "bien", texto: "" },
+    infracciones: { estado: "no", texto: "" },
+    patentes: { estado: "no", texto: "" }
   }
 };
 
 let data = structuredClone(DEFAULT);
-// Las fotos viven en memoria (no se exportan): fotos[i] = [url1, url2]
-let fotos = DEFAULT.componentes.map(() => [null, null]);
+// Las fotos viven en memoria (no se exportan): fotos["c0"] ... fotos["c9"], fotos["escaneo"]
+let fotos = {};
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const getPath = (o, p) => p.split(".").reduce((a, k) => a?.[k], o);
@@ -208,7 +213,9 @@ function fechaLarga(iso) {
   return `${Number(d)} de ${MESES[Number(m) - 1]} de ${y}`;
 }
 const badge = (clase, texto) => `<span class="badge ${clase}">${esc(texto)}</span>`;
-const estadoBadge = e => badge("b-" + e, { bien: "BIEN", regular: "REGULAR", malo: "MALO" }[e] || e.toUpperCase());
+const estadoBadge = e => badge("b-" + e, { bien: "BUENO", regular: "REGULAR", malo: "MALO" }[e] || e.toUpperCase());
+const tieneBadge = e => badge({ tiene: "b-bien", no: "b-malo", desconoce: "b-regular" }[e], { tiene: "TIENE", no: "NO TIENE", desconoce: "DESCONOCE" }[e]);
+const deudaBadge = e => e === "posee" ? badge("b-malo", "POSEE DEUDA") : badge("b-bien", "NO POSEE DEUDA");
 
 // ---------- Editor ----------
 function sel(path, opciones) {
@@ -221,29 +228,26 @@ function buildEditor() {
       <div class="t">${esc(c.nombre)}</div>
       ${sel(`componentes.${i}.estado`, ESTADOS)}
       <textarea data-path="componentes.${i}.texto" style="margin-top:6px">${esc(c.texto)}</textarea>
-      <div class="photos">
-        <input type="file" accept="image/*" data-foto="${i},0">
-        <input type="file" accept="image/*" data-foto="${i},1">
-      </div>
+      <label>Foto</label><input type="file" accept="image/*" data-foto="c${i}">
     </div>`).join("");
 
   const cp = data.complementaria;
   document.getElementById("complementaria").innerHTML = `
-    <div class="comp"><div class="t">Llaves</div>${sel("complementaria.llaves.estado", ESTADOS)}
-      <textarea data-path="complementaria.llaves.texto" style="margin-top:6px">${esc(cp.llaves.texto)}</textarea></div>
-    <div class="comp"><div class="t">Manuales</div>${sel("complementaria.manuales.estado", ESTADOS)}
-      <textarea data-path="complementaria.manuales.texto" style="margin-top:6px">${esc(cp.manuales.texto)}</textarea></div>
-    <div class="comp"><div class="t">Verificación policial</div>${sel("complementaria.policial.estado", [["bien","Sin impedimentos"],["impedimentos","Con impedimentos"]])}
-      <textarea data-path="complementaria.policial.texto" style="margin-top:6px">${esc(cp.policial.texto)}</textarea></div>
-    <div class="comp"><div class="t">VTV</div>${sel("complementaria.vtv.estado", [["vigente","Vigente"],["vencida","Vencida"]])}
-      <label>Vigente / vencida hasta</label><input data-path="complementaria.vtv.hasta" value="${esc(cp.vtv.hasta)}"></div>`;
+    <div class="comp"><div class="t">Llaves</div>${sel("complementaria.llaves.cantidad", [["1","1"],["2","2"]])}</div>
+    <div class="comp"><div class="t">Manuales</div>${sel("complementaria.manuales.estado", TIENE)}</div>
+    <div class="comp"><div class="t">Verificación policial</div>${sel("complementaria.policial.estado", TIENE)}</div>
+    <div class="comp"><div class="t">VTV</div>${sel("complementaria.vtv.estado", TIENE)}</div>
+    <div class="comp"><div class="t">Escaneo electrónico</div>${sel("complementaria.escaneo.estado", ESTADOS_ESCANEO)}
+      <textarea data-path="complementaria.escaneo.texto" style="margin-top:6px">${esc(cp.escaneo.texto)}</textarea>
+      <label>Foto</label><input type="file" accept="image/*" data-foto="escaneo"></div>
+    <div class="comp"><div class="t">Infracciones</div>${sel("complementaria.infracciones.estado", DEUDA)}
+      <textarea data-path="complementaria.infracciones.texto" style="margin-top:6px">${esc(cp.infracciones.texto)}</textarea></div>
+    <div class="comp"><div class="t">Patentes</div>${sel("complementaria.patentes.estado", DEUDA)}
+      <textarea data-path="complementaria.patentes.texto" style="margin-top:6px">${esc(cp.patentes.texto)}</textarea></div>`;
 
-  // Valores de los campos simples
+  // Valores de los campos simples (inputs y textareas)
   document.querySelectorAll("aside [data-path]").forEach(el => {
-    if (el.tagName !== "SELECT" && el.tagName !== "TEXTAREA" || el.tagName === "TEXTAREA") {
-      if (el.tagName !== "SELECT") el.value = getPath(data, el.dataset.path) ?? "";
-    }
-    if (el.tagName === "TEXTAREA") el.value = getPath(data, el.dataset.path) ?? "";
+    if (el.tagName !== "SELECT") el.value = getPath(data, el.dataset.path) ?? "";
   });
 }
 
@@ -257,23 +261,19 @@ document.querySelector("aside").addEventListener("change", e => {
   const p = e.target.dataset.path;
   if (p) { setPath(data, p, e.target.value); render(); }
   if (e.target.dataset.foto) {
-    const [i, j] = e.target.dataset.foto.split(",").map(Number);
     const f = e.target.files[0];
-    if (f) fotos[i][j] = URL.createObjectURL(f);
+    if (f) fotos[e.target.dataset.foto] = URL.createObjectURL(f);
     render();
   }
 });
 
 // ---------- Informe ----------
-function foto(i, j) {
-  return fotos[i][j] ? `<img src="${fotos[i][j]}" alt="${esc(data.componentes[i].nombre)} foto ${j + 1}">` : `Foto ${j + 1}`;
+function foto(clave, nombre) {
+  return fotos[clave] ? `<img src="${fotos[clave]}" alt="${esc(nombre)}">` : `Sin foto`;
 }
 function render() {
   const v = data.vehiculo, g = data.general, cp = data.complementaria;
   const gen = { bueno: ["BUENO", "b-bien"], regular: ["REGULAR", "b-regular"], malo: ["MALO", "b-malo"] }[g.estado];
-  const vtvOk = cp.vtv.estado === "vigente";
-  const policialOk = cp.policial.estado === "bien";
-  const estadoCard = e => e === "impedimentos" ? badge("b-impedimentos", "IMPEDIMENTOS") : estadoBadge(e);
 
   document.getElementById("sheet").innerHTML = `
     <div class="hd">
@@ -299,33 +299,49 @@ function render() {
       ${data.componentes.map((c, i) => `
         <div class="row">
           <div class="name">${esc(c.nombre)}</div>
-          <div class="ph">${foto(i, 0)}</div>
-          <div class="ph">${foto(i, 1)}</div>
+          <div class="ph">${foto("c" + i, c.nombre)}</div>
           <div class="desc">${estadoBadge(c.estado)}<br>${esc(c.texto)}</div>
         </div>`).join("")}
 
       <div class="sec">Información complementaria</div>
       <div class="grid4">
-        <div class="card"><h4>Llaves</h4><div class="c">${estadoBadge(cp.llaves.estado)}<p>${esc(cp.llaves.texto)}</p></div></div>
-        <div class="card"><h4>Manuales</h4><div class="c">${estadoBadge(cp.manuales.estado)}<p>${esc(cp.manuales.texto)}</p></div></div>
-        <div class="card"><h4>Verificación Policial</h4><div class="c">${estadoCard(cp.policial.estado)}<p>${esc(cp.policial.texto)}</p></div></div>
-        <div class="card"><h4>VTV</h4><div class="c">${vtvOk ? badge("b-vigente", "VIGENTE") : badge("b-vencida", "VENCIDA")}
-          <p>${vtvOk ? "VTV vigente hasta:" : "VTV vencida. Venció en:"}<br><b>${esc(cp.vtv.hasta)}</b></p></div></div>
+        <div class="card"><h4>Llaves</h4><div class="c">${badge("b-bien", cp.llaves.cantidad + (cp.llaves.cantidad === "1" ? " LLAVE" : " LLAVES"))}</div></div>
+        <div class="card"><h4>Manuales</h4><div class="c">${tieneBadge(cp.manuales.estado)}</div></div>
+        <div class="card"><h4>Verificación Policial</h4><div class="c">${tieneBadge(cp.policial.estado)}</div></div>
+        <div class="card"><h4>VTV</h4><div class="c">${tieneBadge(cp.vtv.estado)}</div></div>
+      </div>
+
+      <div class="sec">Escaneo electrónico</div>
+      <div class="row">
+        <div class="name">Escaneo</div>
+        <div class="ph">${foto("escaneo", "Escaneo electrónico")}</div>
+        <div class="desc">${estadoBadge(cp.escaneo.estado)}<br>${esc(cp.escaneo.texto)}</div>
+      </div>
+
+      <div class="sec">Infracciones y patentes</div>
+      <div class="row" style="grid-template-columns:130px 1fr">
+        <div class="name">Infracciones</div>
+        <div class="desc">${deudaBadge(cp.infracciones.estado)}<br>${esc(cp.infracciones.texto)}</div>
+      </div>
+      <div class="row" style="grid-template-columns:130px 1fr">
+        <div class="name">Patentes</div>
+        <div class="desc">${deudaBadge(cp.patentes.estado)}<br>${esc(cp.patentes.texto)}</div>
       </div>
     </div>`;
 }
 
-// ---------- Botones ----------
+// ---------- Botones
 document.getElementById("descargar").onclick = async () => {
   const boton = document.getElementById("descargar");
   boton.disabled = true; boton.textContent = "Generando...";
   document.body.classList.add("pdf-mode");
+  window.scrollTo(0, 0);
   try {
     await html2pdf().set({
       margin: [8, 8, 8, 8],
       filename: `informe-${data.vehiculo.patente || "vehiculo"}.pdf`,
       image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc" },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#f5f8fc", scrollX: 0, scrollY: 0 },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"], avoid: [".row", ".card", ".gen", ".facts", ".sec"] }
     }).from(document.getElementById("sheet")).save();
